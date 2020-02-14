@@ -181,7 +181,7 @@ fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client:
                     buffer.push(trace);
                 }
                 Err(_) => {
-                    tokio::time::delay_for(Duration::from_secs(1)).await;
+                    tokio::time::delay_for(client.buffer_flush_min_interval).await;
                 }
             }
 
