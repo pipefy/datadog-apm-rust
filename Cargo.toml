@@ -6,9 +6,9 @@ edition = "2018"
 license = "MIT"
 readme = "README.md"
 description = "Datadog apm low level client for rust"
-homepage = "https://github.com/pipefy/datadog-apm"
+homepage = "https://github.com/pipefy/datadog-apm-rust"
 documentation = "https://docs.rs/datadog-apm"
-repository = "https://github.com/pipefy/datadog-apm"
+repository = "https://github.com/pipefy/datadog-apm-rust"
 
 [dependencies]
 hyper = "0.13"
