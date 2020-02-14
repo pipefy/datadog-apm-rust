@@ -85,7 +85,7 @@
 //! client.send_trace(trace);
 //! ```
 //!
-//! And that's it! The trace will be buffered and send without block the current caller.
+//! And that's it! The trace will be buffered and sent without block the current caller.
 //!
 //!
 //! # Config
