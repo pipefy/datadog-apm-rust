@@ -10,7 +10,7 @@ Based on [datadog documentation](https://docs.datadoghq.com/api/?lang=bash#send-
 
 ## Usage
 
-Check the [docs](https://docs.rs/datadog_apm) for usage instructions.
+Check the [docs](https://docs.rs/datadog-apm) for usage instructions.
 
 ## Examples
 
