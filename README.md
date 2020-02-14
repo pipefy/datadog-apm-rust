@@ -4,7 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/datadog-apm.svg)](https://crates.io/crates/datadog-apm)
 [![Released API docs](https://docs.rs/datadog-apm/badge.svg)](https://docs.rs/datadog-apm)
 
-A low level client implementation of datadog apm for rust.
+Unofficial Datadog APM for Rust.
 
 Based on [datadog documentation](https://docs.datadoghq.com/api/?lang=bash#send-traces).
 
