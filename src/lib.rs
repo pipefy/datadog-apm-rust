@@ -95,8 +95,8 @@
 //!
 //! # Features that are not included yet: (Contributions welcome!)
 //!
-//! - [ ] add support to [async-std](https://github.com/async-rs/async-std).
-//! - [ ] integrate with [tracing](https://github.com/tokio-rs/tracing).
+//! - [ ] [async-std](https://github.com/async-rs/async-std) support.
+//! - [ ] [tracing](https://github.com/tokio-rs/tracing) integration.
 //!
 #[macro_use]
 extern crate log;

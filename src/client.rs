@@ -16,7 +16,7 @@ pub struct Client {
     http_client: hyper::Client<HttpConnector>,
     buffer_sender: mpsc::Sender<Trace>,
     buffer_size: usize,
-    buffer_flush_min_interval: Duration,
+    buffer_flush_max_interval: Duration,
 }
 
 /// Configuration settings for the client.
@@ -35,8 +35,8 @@ pub struct Config {
     pub buffer_queue_capacity: u16,
     /// The buffer size, defaults to 200. It's the amount of traces send in a single request to datadog agent.
     pub buffer_size: u16,
-    /// The buffer flush minimal interval, defaults to 200 ms. It's the minimum amount of time between buffer flushes that is the time we wait to buffer the traces before send if the buffer does not reach the buffer_size.
-    pub buffer_flush_min_interval: Duration,
+    /// The buffer flush maximum interval, defaults to 200 ms. It's the maximum amount of time between buffer flushes that is the time we wait to buffer the traces before send if the buffer does not reach the buffer_size.
+    pub buffer_flush_max_interval: Duration,
 }
 
 impl Default for Config {
@@ -48,7 +48,7 @@ impl Default for Config {
             service: "".to_string(),
             buffer_queue_capacity: std::u16::MAX,
             buffer_size: 200,
-            buffer_flush_min_interval: Duration::from_millis(200),
+            buffer_flush_max_interval: Duration::from_millis(200),
         }
     }
 }
@@ -64,7 +64,7 @@ impl Client {
             http_client: hyper::Client::new(),
             buffer_sender: buffer_sender,
             buffer_size: config.buffer_size as usize,
-            buffer_flush_min_interval: config.buffer_flush_min_interval,
+            buffer_flush_max_interval: config.buffer_flush_max_interval,
         };
 
         spawn_consume_buffer_task(buffer_receiver, client.clone());
@@ -181,26 +181,26 @@ fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client:
                     buffer.push(trace);
                 }
                 Err(_) => {
-                    tokio::time::delay_for(client.buffer_flush_min_interval).await;
+                    tokio::time::delay_for(client.buffer_flush_max_interval).await;
                 }
             }
 
             if buffer.len() == client.buffer_size
-                || flush_min_interval_has_passed(&buffer, &client, last_flushed_at)
+                || flush_max_interval_has_passed(&buffer, &client, last_flushed_at)
             {
                 client.send_traces(buffer.drain(..).collect()).await;
                 last_flushed_at = SystemTime::now();
             }
         }
 
-        fn flush_min_interval_has_passed<T>(
+        fn flush_max_interval_has_passed<T>(
             buffer: &Vec<T>,
             client: &Client,
             last_flushed_at: SystemTime,
         ) -> bool {
             buffer.len() > 0
                 && SystemTime::now().duration_since(last_flushed_at).unwrap()
-                    > client.buffer_flush_min_interval
+                    > client.buffer_flush_max_interval
         }
     });
 }
