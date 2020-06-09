@@ -15,7 +15,7 @@
 //! Add `datadog_apm` and `tokio` to your dependencies:
 //!```not_rust
 //!tokio = { version = "0.2", features = ["macros", "sync"] }
-//!datadog_apm = "0.1"
+//!datadog-apm = "0.1"
 //!```
 //!
 //! - Create the client:
