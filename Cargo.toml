@@ -1,6 +1,6 @@
 [package]
 name = "datadog-apm"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Fernando Gonçalves <fernando.goncalves@pipefy.com>"]
 edition = "2018"
 license = "MIT"
