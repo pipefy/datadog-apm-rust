@@ -72,7 +72,7 @@ impl Client {
         client
     }
 
-    pub fn send_trace(mut self, trace: Trace) {
+    pub fn send_trace(self, trace: Trace) {
         match self.buffer_sender.try_send(trace) {
             Ok(_) => trace!("trace enqueued"),
             Err(err) => warn!("could not enqueue trace: {:?}", err),
@@ -170,18 +170,22 @@ struct RawSpan {
 }
 
 fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client: Client) {
+    use futures_util::FutureExt;
     tokio::spawn(async move {
         let mut buffer = Vec::with_capacity(client.buffer_size);
         let mut last_flushed_at = SystemTime::now();
         loop {
             let client = client.clone();
 
-            match buffer_receiver.try_recv() {
-                Ok(trace) => {
+            // try_recv was removed, see: https://github.com/tokio-rs/tokio/pull/3263
+            // I went with the solution here: https://github.com/tokio-rs/tokio/issues/3350
+            // My reasoning was that a delay wasn't a big deal in this context.
+            match buffer_receiver.recv().now_or_never().and_then(|x| x) {
+                Some(trace) => {
                     buffer.push(trace);
                 }
-                Err(_) => {
-                    tokio::time::delay_for(client.buffer_flush_max_interval).await;
+                None => {
+                    tokio::time::sleep(client.buffer_flush_max_interval).await;
                 }
             }
 

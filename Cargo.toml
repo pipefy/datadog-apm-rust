@@ -11,12 +11,13 @@ documentation = "https://docs.rs/datadog-apm"
 repository = "https://github.com/pipefy/datadog-apm-rust"
 
 [dependencies]
+futures-util = "0.3.12"
 hyper = "0.13"
 rmp-serde = "0.14.2"
 rmp = "0.8"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-tokio = { version = "0.2", features = ["macros", "sync"] }
+tokio = { version = "1.2", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
 [dev-dependencies]
 rand = "0.3"
