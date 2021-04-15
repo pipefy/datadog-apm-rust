@@ -74,14 +74,14 @@ impl Client {
         client
     }
 
-    pub fn send_trace(mut self, trace: Trace) {
+    pub fn send_trace(&mut self, trace: Trace) {
         match self.buffer_sender.try_send(trace) {
             Ok(_) => trace!("trace enqueued"),
             Err(err) => warn!("could not enqueue trace: {:?}", err),
         };
     }
 
-    async fn send_traces(mut self, traces: Vec<Trace>) {
+    async fn send_traces(&mut self, traces: Vec<Trace>) {
         for _ in 0..Client::MAX_RETRIES {
             match self.do_send_traces(&traces).await {
                 ShouldRetry::True => debug!("try sending traces again"),
