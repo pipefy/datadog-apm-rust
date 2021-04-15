@@ -90,7 +90,7 @@ impl Client {
         }
     }
 
-    async fn do_send_traces(&mut self, traces: &Vec<Trace>) -> ShouldRetry {
+    async fn do_send_traces(&mut self, traces: &[Trace]) -> ShouldRetry {
         let mut should_retry = ShouldRetry::False;
 
         match self.http_client.request(self.build_request(traces)).await {
@@ -110,7 +110,7 @@ impl Client {
         should_retry
     }
 
-    fn build_request(&self, traces: &Vec<Trace>) -> Request<Body> {
+    fn build_request(&self, traces: &[Trace]) -> Request<Body> {
         let raw_traces = traces
             .iter()
             .map(|trace| map_to_raw_spans(trace, self.env.clone(), self.service.clone()))
@@ -268,13 +268,13 @@ fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client:
         }
 
         fn flush_max_interval_has_passed<T>(
-            buffer: &Vec<T>,
+            buffer: &[T],
             client: &Client,
             last_flushed_at: SystemTime,
         ) -> bool {
-            buffer.len() > 0
+            !buffer.is_empty()
                 && SystemTime::now().duration_since(last_flushed_at).unwrap()
-                > client.buffer_flush_max_interval
+                    > client.buffer_flush_max_interval
         }
     });
 }
