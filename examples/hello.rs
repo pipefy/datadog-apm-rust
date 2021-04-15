@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 #[tokio::main]
 async fn main() {
-    let client = Client::new(Config {
+    let mut client = Client::new(Config {
         env: Some("production".to_string()),
         service: "my-crate".to_string(),
         ..Default::default()

@@ -243,13 +243,11 @@ enum ShouldRetry {
     False,
 }
 
-fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client: Client) {
+fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, mut client: Client) {
     tokio::spawn(async move {
         let mut buffer = Vec::with_capacity(client.buffer_size);
         let mut last_flushed_at = SystemTime::now();
         loop {
-            let client = client.clone();
-
             match buffer_receiver.try_recv() {
                 Ok(trace) => {
                     buffer.push(trace);
@@ -371,7 +369,7 @@ mod tests {
             service: String::from("service_name"),
             ..Default::default()
         };
-        let client = Client::new(config);
+        let mut client = Client::new(config);
         let trace = a_trace();
         client.send_trace(trace);
     }
