@@ -1,4 +1,4 @@
-use hyper::{Body, Method, Request};
+use hyper::{Body, Method, Request, StatusCode};
 
 use hyper::client::connect::HttpConnector;
 use rmp::encode;
@@ -11,7 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[derive(Debug, Clone)]
 pub struct Client {
     env: Option<String>,
-    endpoint: String,
+    endpoint: Endpoint,
     service: String,
     http_client: hyper::Client<HttpConnector>,
     buffer_sender: mpsc::Sender<Trace>,
@@ -54,15 +54,17 @@ impl Default for Config {
 }
 
 impl Client {
+    const MAX_RETRIES: i32 = 5;
+
     pub fn new(config: Config) -> Client {
         let (buffer_sender, buffer_receiver) = mpsc::channel(config.buffer_queue_capacity as usize);
 
         let client = Client {
             env: config.env,
             service: config.service,
-            endpoint: format!("http://{}:{}/v0.3/traces", config.host, config.port),
+            endpoint: Endpoint::create_traces_endpoint(&*config.host, &*config.port),
             http_client: hyper::Client::new(),
-            buffer_sender: buffer_sender,
+            buffer_sender,
             buffer_size: config.buffer_size as usize,
             buffer_flush_max_interval: config.buffer_flush_max_interval,
         };
@@ -79,34 +81,65 @@ impl Client {
         };
     }
 
-    async fn send_traces(self, traces: Vec<Trace>) {
-        let traces = traces
-            .iter()
-            .map(|trace| map_to_raw_spans(trace, self.env.clone(), self.service.clone()))
-            .collect::<Vec<Vec<RawSpan>>>();
+    async fn send_traces(mut self, traces: Vec<Trace>) {
+        for _ in 0..Client::MAX_RETRIES {
+            match self.do_send_traces(&traces).await {
+                ShouldRetry::True => debug!("try sending traces again"),
+                ShouldRetry::False => break,
+            }
+        }
+    }
 
-        let trace_count = traces.len();
-        let payload = serialize_as_msgpack(traces);
+    async fn do_send_traces(&mut self, traces: &Vec<Trace>) -> ShouldRetry {
+        let mut should_retry = ShouldRetry::False;
 
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(self.endpoint)
-            .header("content-type", "application/msgpack")
-            .header("content-length", payload.len())
-            .header("X-Datadog-Trace-Count", trace_count)
-            .body(Body::from(payload))
-            .unwrap();
-
-        match self.http_client.request(req).await {
+        match self.http_client.request(self.build_request(traces)).await {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    trace!("{} traces sent to datadog", trace_count)
+                    trace!("{} traces sent to datadog", traces.len());
+                } else if self.should_downgrade(resp.status()) {
+                    self.downgrade();
+                    should_retry = ShouldRetry::True
                 } else {
                     error!("error sending traces to datadog: {:?}", resp)
                 }
             }
             Err(err) => error!("error sending traces to datadog: {:?}", err),
         }
+
+        should_retry
+    }
+
+    fn build_request(&self, traces: &Vec<Trace>) -> Request<Body> {
+        let raw_traces = traces
+            .iter()
+            .map(|trace| map_to_raw_spans(trace, self.env.clone(), self.service.clone()))
+            .collect::<Vec<Vec<RawSpan>>>();
+
+        let trace_count = raw_traces.len();
+        let payload = serialize_as_msgpack(raw_traces);
+
+        Request::builder()
+            .method(Method::POST)
+            .uri(self.endpoint.endpoint())
+            .header("content-type", "application/msgpack")
+            .header("content-length", payload.len())
+            .header("X-Datadog-Trace-Count", trace_count)
+            .body(Body::from(payload))
+            .unwrap()
+    }
+
+    fn should_downgrade(&self, status: StatusCode) -> bool {
+        (status == 404 || status == 415) && self.endpoint.fallback.is_some()
+    }
+
+    fn downgrade(&mut self) {
+        debug!(
+            "trace endpoint {} didn't work, switching to fallback",
+            self.endpoint.endpoint()
+        );
+        self.endpoint = self.endpoint.fallback().clone().unwrap();
+        debug!("using trace endpoint {} now", self.endpoint.endpoint());
     }
 }
 
@@ -169,6 +202,47 @@ struct RawSpan {
     r#type: String,
 }
 
+#[derive(Debug, Clone)]
+struct Endpoint {
+    endpoint: String,
+    fallback: Box<Option<Endpoint>>,
+}
+
+impl Endpoint {
+    fn new(endpoint: String, fallback: Option<Endpoint>) -> Self {
+        Endpoint {
+            endpoint,
+            fallback: Box::new(fallback),
+        }
+    }
+
+    pub fn create_traces_endpoint(host: &str, port: &str) -> Self {
+        Endpoint::new(
+            format!("http://{}:{}/{}/traces", host, port, "v0.4"),
+            Some(Endpoint::new(
+                format!("http://{}:{}/{}/traces", host, port, "v0.3"),
+                Some(Endpoint::new(
+                    format!("http://{}:{}/{}/traces", host, port, "v0.2"),
+                    None,
+                )),
+            )),
+        )
+    }
+
+    pub fn endpoint(&self) -> &str {
+        &*self.endpoint
+    }
+
+    pub fn fallback(&self) -> &Option<Endpoint> {
+        &self.fallback
+    }
+}
+
+enum ShouldRetry {
+    True,
+    False,
+}
+
 fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client: Client) {
     tokio::spawn(async move {
         let mut buffer = Vec::with_capacity(client.buffer_size);
@@ -200,7 +274,7 @@ fn spawn_consume_buffer_task(mut buffer_receiver: mpsc::Receiver<Trace>, client:
         ) -> bool {
             buffer.len() > 0
                 && SystemTime::now().duration_since(last_flushed_at).unwrap()
-                    > client.buffer_flush_max_interval
+                > client.buffer_flush_max_interval
         }
     });
 }
