@@ -1,8 +1,8 @@
 [package]
 name = "datadog-apm"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Fernando Gonçalves <fernando.goncalves@pipefy.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "README.md"
 description = "Datadog apm low level client for rust"
@@ -11,13 +11,13 @@ documentation = "https://docs.rs/datadog-apm"
 repository = "https://github.com/pipefy/datadog-apm-rust"
 
 [dependencies]
-hyper = "0.13"
-rmp-serde = "0.14.2"
-rmp = "0.8"
-log = "0.4"
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "0.2", features = ["macros", "sync"] }
+hyper = { version = "0.14.23", features = ["client", "http2", "tcp"] }
+rmp-serde = "1.1.1"
+rmp = "0.8.11"
+log = "0.4.17"
+serde = { version = "1.0.152", features = ["derive"] }
+tokio = { version = "1.23.0", features = ["macros", "sync", "time"] }
 
 [dev-dependencies]
-rand = "0.3"
-serde_json = "1"
+rand = "0.8.5"
+serde_json = "1.0.91"
